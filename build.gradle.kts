@@ -39,3 +39,12 @@ ktor {
         archiveFileName.set("${project.name}-${project.version}-fat.jar")
     }
 }
+
+tasks {
+    val stage by registering {
+        dependsOn(build, clean)
+    }
+    build {
+        mustRunAfter(clean)
+    }
+}

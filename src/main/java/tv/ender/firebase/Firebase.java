@@ -7,9 +7,15 @@ import com.google.cloud.firestore.WriteResult;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonWriter;
 import tv.ender.firebase.backend.UserData;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 
 public class Firebase {
     private static Firebase instance;
@@ -20,7 +26,11 @@ public class Firebase {
     private Firebase() {
         System.out.println("Initializing Firebase...");
 
-        try (FileInputStream serviceAccount = new FileInputStream(System.getProperty("SERVICE_ACCOUNT"))) {
+        File file = new File(System.getProperty("SERVICE_ACCOUNT_PATH"));
+
+        this.loadOrCreate(file);
+
+        try (FileInputStream serviceAccount = new FileInputStream(file)) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .setConnectTimeout(10000)
@@ -32,6 +42,29 @@ public class Firebase {
             System.out.println("Firebase initialized!");
         } catch (Exception ex) {
             System.out.println("Firebase failed to initialize. Exiting...");
+            ex.printStackTrace();
+
+            Runtime.getRuntime().exit(1);
+        }
+    }
+
+    private void loadOrCreate(File file) {
+        try {
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            if (!file.exists() && System.getProperty("SERVICE_ACCOUNT_DATA") != null) {
+                boolean created = file.createNewFile();
+                if (created) {
+                    /* write json string to file */
+                    try (JsonWriter writer = gson.newJsonWriter(new FileWriter(file))) {
+                        JsonObject object = gson.fromJson(System.getProperty("SERVICE_ACCOUNT_DATA"), JsonObject.class);
+                        gson.toJson(object, writer);
+
+                        writer.flush();
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.out.println("Failed to create service account file. Exiting...");
             ex.printStackTrace();
 
             Runtime.getRuntime().exit(1);

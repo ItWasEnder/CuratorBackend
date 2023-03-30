@@ -9,31 +9,21 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
+import tv.ender.App;
 import tv.ender.firebase.Firebase;
 import tv.ender.firebase.backend.UserData;
-
-import java.io.FileInputStream;
-import java.util.Properties;
 
 import static org.junit.Assert.*;
 
 public class FirebaseDatabaseTest {
+    private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", 200, 0);
+
     @Rule
     public Timeout globalTimeout = Timeout.seconds(10);
-    private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", 200, 0);
 
     @Before
     public void setup() {
-        /* load env properties */
-        try (FileInputStream in = new FileInputStream(".env")) {
-            Properties properties = new Properties();
-            properties.load(in);
-
-            System.setProperties(properties);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
+        App.loadEnv();
         Firebase.get();
     }
 
