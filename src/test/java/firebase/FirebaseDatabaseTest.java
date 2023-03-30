@@ -19,7 +19,7 @@ public class FirebaseDatabaseTest {
     private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", 200, 0);
 
     @Rule
-    public Timeout globalTimeout = Timeout.seconds(10);
+    public Timeout globalTimeout = Timeout.seconds(30);
 
     @Before
     public void setup() {
