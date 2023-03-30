@@ -27,6 +27,8 @@ dependencies {
     implementation("com.discord4j:discord4j-core:3.2.4")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.9.2")
+
     implementation("com.google.firebase:firebase-admin:9.1.1")
 }
 
@@ -44,7 +46,12 @@ tasks {
     val stage by registering {
         dependsOn(build, clean)
     }
+    
     build {
         mustRunAfter(clean)
+    }
+
+    test {
+        useJUnitPlatform()
     }
 }
