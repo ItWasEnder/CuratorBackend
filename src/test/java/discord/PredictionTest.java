@@ -5,7 +5,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import tv.ender.discord.backend.Prediction;
-import tv.ender.discord.backend.Result;
+import tv.ender.common.Result;
 import tv.ender.firebase.backend.UserData;
 
 import java.util.HashSet;

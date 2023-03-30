@@ -1,5 +1,6 @@
 package tv.ender;
 
+import tv.ender.discord.Discord;
 import tv.ender.firebase.Firebase;
 
 import java.io.FileInputStream;
@@ -26,6 +27,9 @@ public class App {
         /* init firebase */
         Firebase.get();
 
+        /* startup discord bot */
+        Discord.get().connect();
 
+        System.exit(0);
     }
 }

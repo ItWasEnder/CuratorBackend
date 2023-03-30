@@ -3,6 +3,7 @@ package tv.ender.discord.backend;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import tv.ender.common.ReadWriteLock;
+import tv.ender.common.Result;
 import tv.ender.firebase.backend.UserData;
 
 import java.util.HashSet;

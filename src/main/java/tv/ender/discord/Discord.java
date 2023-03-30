@@ -11,7 +11,11 @@ public class Discord {
         System.out.println("Discord initialized!");
     }
 
-    public static Discord init() {
+    public void connect() {
+        System.out.println("Connecting Discord Bot...");
+    }
+
+    public static Discord get() {
         if (Discord.instance == null) {
             Discord.instance = new Discord();
         }

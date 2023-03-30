@@ -1,5 +1,5 @@
 {
   "name": "Start on Heroku: Java",
-  "description": "A barebones Java app, which can easily be deployed to Heroku.",
+  "description": "Discord bot build in java for managing raffles & stream predicitons.",
   "addons": []
 }

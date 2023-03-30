@@ -1,4 +1,4 @@
-package tv.ender.discord.backend;
+package tv.ender.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
