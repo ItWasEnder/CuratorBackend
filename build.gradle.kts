@@ -1,16 +1,11 @@
 plugins {
     id("java")
+    id("io.ktor.plugin") version "2.2.4"
 }
 
 group = "tv.ender"
 version = "1.0.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_17
-
-tasks.withType<Jar> {
-    manifest {
-        attributes["Main-Class"] = "tv.ender.App"
-    }
-}
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
@@ -33,4 +28,14 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     implementation("com.google.firebase:firebase-admin:9.1.1")
+}
+
+application {
+    mainClass.set("tv.ender.App")
+}
+
+ktor {
+    fatJar {
+        archiveFileName.set("${project.name}-${project.version}-fat.jar")
+    }
 }
