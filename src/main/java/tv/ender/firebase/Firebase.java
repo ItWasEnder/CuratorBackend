@@ -1,0 +1,73 @@
+package tv.ender.firebase;
+
+import com.google.api.core.ApiFuture;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.WriteResult;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.cloud.FirestoreClient;
+import tv.ender.firebase.backend.UserData;
+
+import java.io.FileInputStream;
+
+public class Firebase {
+    private static Firebase instance;
+
+    /* collections */
+    public static final String USERS = "users";
+
+    private Firebase() {
+        System.out.println("Initializing Firebase...");
+
+        try (FileInputStream serviceAccount = new FileInputStream(System.getProperty("SERVICE_ACCOUNT"))) {
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .setConnectTimeout(10000)
+                    .build();
+
+            FirebaseApp.initializeApp(options);
+            FirestoreClient.getFirestore();
+
+            System.out.println("Firebase initialized!");
+        } catch (Exception ex) {
+            System.out.println("Firebase failed to initialize. Exiting...");
+            ex.printStackTrace();
+
+            Runtime.getRuntime().exit(1);
+        }
+    }
+
+    /**
+     * Writes a user to the database
+     *
+     * @param data The user data
+     * @return The write result
+     */
+    public ApiFuture<WriteResult> writeUser(UserData data) {
+        var db = FirestoreClient.getFirestore();
+
+        return db.collection(USERS).document(data.getDiscordId()).set(data);
+    }
+
+
+    /**
+     * Reads a user from the database
+     *
+     * @param discordId The user's discord ID
+     * @return The user's data
+     */
+    public ApiFuture<DocumentSnapshot> readUser(String discordId) {
+        var db = FirestoreClient.getFirestore();
+
+        return db.collection(USERS).document(discordId).get();
+    }
+
+    public static Firebase get() {
+        if (Firebase.instance == null) {
+            Firebase.instance = new Firebase();
+        }
+
+        return Firebase.instance;
+    }
+}
