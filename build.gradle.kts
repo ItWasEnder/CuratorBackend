@@ -50,11 +50,11 @@ ktor {
 
 tasks {
     val stage by registering {
-        dependsOn(build, clean)
+        dependsOn(test, build, clean)
     }
 
     build {
-        mustRunAfter(clean)
+        mustRunAfter(test, clean)
     }
 
     test {
