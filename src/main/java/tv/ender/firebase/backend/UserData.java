@@ -13,6 +13,7 @@ import java.util.Map;
 public class UserData {
     private String name;
     private String discordId;
+    private String guildId;
     private int tickets;
     private int losses;
 
@@ -21,7 +22,7 @@ public class UserData {
      *
      * @param snapshot The document snapshot
      * @return The UserData object
-     * @throws RuntimeException If the document snapshot is invalid
+     * @throws IllegalArgumentException If the document snapshot is invalid
      */
     public static UserData fromDocument(DocumentSnapshot snapshot) {
         Map<String, Object> data = snapshot.getData();
@@ -29,10 +30,11 @@ public class UserData {
         try {
             String name = (String) data.get("name");
             String discordId = (String) data.get("discordId");
+            String guildId = (String) data.get("guildId");
             int tickets = ((Long) data.get("tickets")).intValue();
             int losses = ((Long) data.get("losses")).intValue();
 
-            return UserData.of(name, discordId, tickets, losses);
+            return UserData.of(name, discordId, guildId, tickets, losses);
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse user data from document snapshot", e);
         }

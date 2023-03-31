@@ -11,6 +11,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonWriter;
+import tv.ender.firebase.backend.GuildData;
 import tv.ender.firebase.backend.UserData;
 
 import java.io.File;
@@ -22,6 +23,7 @@ public class Firebase {
 
     /* collections */
     public static final String USERS = "users";
+    public static final String GUILDS = "guilds";
 
     private Firebase() {
         System.out.println("Initializing Firebase...");
@@ -83,18 +85,19 @@ public class Firebase {
         return db.collection(USERS).document(data.getDiscordId()).set(data);
     }
 
-
     /**
-     * Reads a user from the database
+     * Writes a guild to the database
      *
-     * @param discordId The user's discord ID
-     * @return The user's data
+     * @param data The guild data
+     * @return The write result
      */
-    public ApiFuture<DocumentSnapshot> readUser(String discordId) {
+    public ApiFuture<WriteResult> writeGuild(GuildData data) {
         var db = FirestoreClient.getFirestore();
 
-        return db.collection(USERS).document(discordId).get();
+        return db.collection(GUILDS).document(data.getGuildId()).set(data);
     }
+
+
 
     public static Firebase get() {
         if (Firebase.instance == null) {

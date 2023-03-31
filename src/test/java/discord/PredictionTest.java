@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
-import tv.ender.discord.backend.Prediction;
+import tv.ender.discord.backend.activities.Prediction;
 import tv.ender.common.Result;
 import tv.ender.firebase.backend.UserData;
 
@@ -34,8 +34,12 @@ public class PredictionTest {
 
         /* populate user map */
         for (int i = 0; i < rand.nextInt(10, 55); i++) {
-            dataMap.add(UserData.of(randomString(8), randomId(18), rand.nextInt(1, 1024), 0));
+            dataMap.add(createUserData());
         }
+    }
+
+    private UserData createUserData() {
+        return UserData.of(randomString(8), randomId(8), randomId(18), rand.nextInt(1, 1024), 0);
     }
 
     @Test
@@ -97,7 +101,7 @@ public class PredictionTest {
         }
 
         System.out.printf("Finished entering %d users into prediction...%n", optionPicks.keySet().size());
-        assertEquals(dataMap.size(), prediction.getEntrants().size());
+        assertEquals(dataMap.size(), prediction.getParticipants().size());
 
         for (var entry : prediction.getEntrantsTicketsMap().entrySet()) {
             var user = entry.getKey();
@@ -222,12 +226,12 @@ public class PredictionTest {
         prediction.enter(randomUser, 100, "Option1");
 
         assertEquals(0, randomUser.getTickets());
-        assertEquals(1, prediction.getEntrants().size());
+        assertEquals(1, prediction.getParticipants().size());
         assertEquals(100, prediction.getEntrantsTicketsMap().get(randomUser).intValue());
 
         var result = prediction.reset();
 
-        assertEquals(0, prediction.getEntrants().size());
+        assertEquals(0, prediction.getParticipants().size());
 
         assertEquals(100, randomUser.getTickets());
 

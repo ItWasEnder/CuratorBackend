@@ -16,7 +16,7 @@ import tv.ender.firebase.backend.UserData;
 import static org.junit.Assert.*;
 
 public class FirebaseDatabaseTest {
-    private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", 200, 0);
+    private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", "1090379681330630748", 200, 0);
 
     @Rule
     public Timeout globalTimeout = Timeout.seconds(30);

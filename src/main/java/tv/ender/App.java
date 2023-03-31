@@ -25,8 +25,6 @@ public class App {
 
         /* startup discord bot */
         Discord.get().connect();
-
-        System.exit(0);
     }
 
     public static void loadEnv() {
