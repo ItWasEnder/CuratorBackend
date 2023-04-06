@@ -1,13 +1,11 @@
 package tv.ender;
 
-import tv.ender.discord.Discord;
+import botrino.api.Botrino;
 import tv.ender.firebase.Firebase;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Properties;
 
 public class App {
     public static void main(String[] args) {
@@ -17,28 +15,11 @@ public class App {
             throw new RuntimeException(e);
         }
 
-        /* load env properties */
-        loadEnv();
-
         /* init firebase */
         Firebase.get();
 
         /* startup discord bot */
-        Discord.get().connect();
-    }
-
-    public static void loadEnv() {
-        /* load env properties */
-        if (Files.exists(Paths.get(".env"))) {
-            try (FileInputStream in = new FileInputStream(".env")) {
-                Properties properties = new Properties();
-                properties.putAll(System.getProperties());
-                properties.load(in);
-
-                System.setProperties(properties);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+//        Discord.get().connect();
+        Botrino.run(args);
     }
 }

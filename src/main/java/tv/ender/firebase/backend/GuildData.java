@@ -2,7 +2,7 @@ package tv.ender.firebase.backend;
 
 import com.google.cloud.firestore.DocumentSnapshot;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Data
 @Accessors(chain = true)
-@AllArgsConstructor(staticName = "of")
+@Builder
 public class GuildData {
     private String guildId;
     private String guildName;
@@ -23,6 +23,7 @@ public class GuildData {
     private List<String> adminRoles;
     @Setter(AccessLevel.NONE)
     private boolean banned;
+    private int startingTickets;
 
     /**
      * Bans the guild from using the bot
@@ -49,8 +50,19 @@ public class GuildData {
             String activityType = (String) data.get("activityType");
             String[] arrRoles = (String[]) data.get("adminRoles");
             boolean banned = Boolean.parseBoolean((String) data.get("banned"));
+            int startingTickets = ((Long) data.get("startingTickets")).intValue();
 
-            return GuildData.of(guildId, guildName, botPrefix, botStatus, activityType, new ArrayList<>(List.of(arrRoles)), banned);
+            var builder = GuildData.builder()
+                    .guildId(guildId)
+                    .guildName(guildName)
+                    .botPrefix(botPrefix)
+                    .botStatus(botStatus)
+                    .activityType(activityType)
+                    .adminRoles(new ArrayList<>(List.of(arrRoles)))
+                    .banned(banned)
+                    .startingTickets(startingTickets);
+
+            return builder.build();
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse user data from document snapshot", e);
         }

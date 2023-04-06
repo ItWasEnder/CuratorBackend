@@ -20,18 +20,18 @@ import java.util.concurrent.atomic.AtomicLong;
 @Accessors(chain = true)
 public class Prediction implements IActivity {
     private final ReadWriteLock lock = new ReadWriteLock();
-    private final Map<UserData, Integer> entrantsTicketsMap = new ConcurrentHashMap<>();
+    private final Map<UserData, Integer> entrantsTokenMap = new ConcurrentHashMap<>();
     private final Map<UserData, String> entrantPick = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final AtomicLong endTime = new AtomicLong(-1);
-    private final UUID identifier = UUID.randomUUID();
+    private final UUID uuid = UUID.randomUUID();
 
     @Override
     public Set<UserData> getParticipants() {
         try {
             this.lock.readLock();
 
-            return this.entrantsTicketsMap.keySet();
+            return this.entrantsTokenMap.keySet();
         } finally {
             this.lock.readUnlock();
         }
@@ -41,7 +41,7 @@ public class Prediction implements IActivity {
         try {
             this.lock.readLock();
 
-            return this.entrantsTicketsMap.values().stream().mapToInt(Integer::intValue).sum();
+            return this.entrantsTokenMap.values().stream().mapToInt(Integer::intValue).sum();
         } finally {
             this.lock.readUnlock();
         }
@@ -62,13 +62,13 @@ public class Prediction implements IActivity {
         try {
             this.lock.readLock();
             if (!this.entrantPick.containsValue(winning)) {
-                return Result.fail("Invalid winning option \"%s\" for prediction \"%s\"".formatted(winning, this.identifier));
+                return Result.fail("Invalid winning option \"%s\" for prediction \"%s\"".formatted(winning, this.uuid));
             }
 
             Set<UserData> winners = new HashSet<>();
             int winningBets = 0;
             int totalBets = this.getTotalTickets();
-            for (var entry : this.entrantsTicketsMap.entrySet()) {
+            for (var entry : this.entrantsTokenMap.entrySet()) {
                 if (Objects.equals(this.entrantPick.get(entry.getKey()), winning)) {
                     winners.add(entry.getKey());
                     winningBets += entry.getValue();
@@ -77,7 +77,7 @@ public class Prediction implements IActivity {
 
             /* payout */
             for (UserData winner : winners) {
-                int viewerBet = this.entrantsTicketsMap.get(winner);
+                int viewerBet = this.entrantsTokenMap.get(winner);
                 int viewerPayout;
 
                 if (winningBets != 0) {
@@ -86,7 +86,7 @@ public class Prediction implements IActivity {
                     viewerPayout = viewerBet;
                 }
 
-                winner.setTickets(winner.getTickets() + viewerPayout);
+                winner.setTokens(winner.getTokens() + viewerPayout);
             }
 
             return Result.pass(winners, "Prediction ended with %d winners and %d total bets"
@@ -110,9 +110,9 @@ public class Prediction implements IActivity {
         try {
             /* refund all tickets */
             this.lock.writeLock();
-            this.entrantsTicketsMap.forEach((user, tickets) -> user.setTickets(user.getTickets() + tickets));
+            this.entrantsTokenMap.forEach((user, tickets) -> user.setTokens(user.getTokens() + tickets));
 
-            this.entrantsTicketsMap.clear();
+            this.entrantsTokenMap.clear();
         } finally {
             this.lock.writeUnlock();
         }
@@ -126,15 +126,15 @@ public class Prediction implements IActivity {
      * Enter a user into the raffle
      *
      * @param user   The user to enter
-     * @param option The number of tickets to enter with
+     * @param option The number of tokens to enter with
      */
-    public Result<UserData> enter(UserData user, int tickets, String option) {
+    public Result<UserData> enter(UserData user, int tokens, String option) {
         if (!this.running.get()) {
             return Result.fail(user, "Prediction is not running");
         }
 
-        if (tickets > user.getTickets()) {
-            return Result.fail(user, "Insufficient tickets: %d > %d".formatted(tickets, user.getTickets()));
+        if (tokens > user.getTokens()) {
+            return Result.fail(user, "Insufficient tokens: %d > %d".formatted(tokens, user.getTokens()));
         }
 
         /* check user choice */
@@ -156,15 +156,15 @@ public class Prediction implements IActivity {
             this.lock.releaseAnyReadLocks();
         }
 
-        /* deposit tickets */
+        /* deposit tokens */
         try {
             this.lock.readLock();
-            if (this.entrantsTicketsMap.containsKey(user)) {
+            if (this.entrantsTokenMap.containsKey(user)) {
                 this.lock.readUnlock();
 
                 try {
                     this.lock.writeLock();
-                    this.entrantsTicketsMap.put(user, tickets + this.entrantsTicketsMap.get(user));
+                    this.entrantsTokenMap.put(user, tokens + this.entrantsTokenMap.get(user));
                 } finally {
                     this.lock.writeUnlock();
                 }
@@ -173,7 +173,7 @@ public class Prediction implements IActivity {
 
                 try {
                     this.lock.writeLock();
-                    this.entrantsTicketsMap.put(user, tickets);
+                    this.entrantsTokenMap.put(user, tokens);
                 } finally {
                     this.lock.writeUnlock();
                 }
@@ -182,10 +182,10 @@ public class Prediction implements IActivity {
             this.lock.releaseAnyReadLocks();
         }
 
-        /* subtract tickets */
-        user.setTickets(user.getTickets() - tickets);
+        /* subtract tokens */
+        user.setTokens(user.getTokens() - tokens);
 
-        return Result.pass(user, "Bet %d tickets on %s".formatted(tickets, option));
+        return Result.pass(user, "Bet %d tokens on %s".formatted(tokens, option));
     }
 
     @Override

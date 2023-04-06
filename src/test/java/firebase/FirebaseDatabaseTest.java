@@ -5,35 +5,29 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.WriteResult;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.cloud.FirestoreClient;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
-import tv.ender.App;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import tv.ender.firebase.Firebase;
 import tv.ender.firebase.backend.UserData;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class FirebaseDatabaseTest {
+class FirebaseDatabaseTest {
     private static final UserData data = UserData.of("ItWasEnder", "125681531824898049", "1090379681330630748", 200, 0);
 
-    @Rule
-    public Timeout globalTimeout = Timeout.seconds(30);
-
-    @Before
-    public void setup() {
-        App.loadEnv();
+    @BeforeAll
+    static void setup() {
+//        App.loadEnv();
         Firebase.get();
     }
 
     @Test
-    public void testConnection() {
+    void testConnection() {
         assertNotNull(FirebaseApp.getInstance());
     }
 
     @Test
-    public void writeData() {
+    void writeData() {
         var db = FirestoreClient.getFirestore();
 
         try {
@@ -49,7 +43,7 @@ public class FirebaseDatabaseTest {
     }
 
     @Test
-    public void deleteData() {
+    void deleteData() {
         var db = FirestoreClient.getFirestore();
 
         try {

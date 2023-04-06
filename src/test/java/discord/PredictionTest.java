@@ -1,11 +1,9 @@
 package discord;
 
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
-import tv.ender.discord.backend.activities.Prediction;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import tv.ender.common.Result;
+import tv.ender.discord.backend.activities.Prediction;
 import tv.ender.firebase.backend.UserData;
 
 import java.util.HashSet;
@@ -17,19 +15,18 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class PredictionTest {
+
+class PredictionTest {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final String NUMBERS = "0123456789";
     private static final Set<UserData> dataMap = new HashSet<>();
     private static final Random rand = new Random();
 
-    @Rule
-    public final Timeout timeout = Timeout.seconds(10);
 
-    @Before
-    public void setup() {
+    @BeforeAll
+    static void setup() {
         dataMap.clear();
 
         /* populate user map */
@@ -38,12 +35,12 @@ public class PredictionTest {
         }
     }
 
-    private UserData createUserData() {
+    private static UserData createUserData() {
         return UserData.of(randomString(8), randomId(8), randomId(18), rand.nextInt(1, 1024), 0);
     }
 
     @Test
-    public void testFullPrediction() {
+    void testFullPrediction() {
         Prediction prediction = createPrediction();
 
         final var toUse = new ConcurrentLinkedQueue<>(dataMap);
@@ -66,12 +63,12 @@ public class PredictionTest {
                         continue;
                     }
 
-                    final int ticketAmount = rand.nextInt(1, data.getTickets());
+                    final int ticketAmount = rand.nextInt(1, data.getTokens());
 
                     /* pick random option */
                     final String option = options[rand.nextInt(options.length)];
 
-                    initialBalances.put(data.getDiscordId(), data.getTickets());
+                    initialBalances.put(data.getDiscordId(), data.getTokens());
                     Result<UserData> result = prediction.enter(data, ticketAmount, option);
 
                     if (result.isSuccessful()) {
@@ -103,7 +100,7 @@ public class PredictionTest {
         System.out.printf("Finished entering %d users into prediction...%n", optionPicks.keySet().size());
         assertEquals(dataMap.size(), prediction.getParticipants().size());
 
-        for (var entry : prediction.getEntrantsTicketsMap().entrySet()) {
+        for (var entry : prediction.getEntrantsTokenMap().entrySet()) {
             var user = entry.getKey();
             var amount = entry.getValue();
 
@@ -137,8 +134,8 @@ public class PredictionTest {
         for (var user : winners) {
             var oldBalance = initialBalances.get(user.getDiscordId());
 
-            if (user.getTickets() <= oldBalance) {
-                fail(String.format("Expected %s to have more tickets than before: new: %d | old: %d", user.getName(), user.getTickets(), oldBalance));
+            if (user.getTokens() <= oldBalance) {
+                fail(String.format("Expected %s to have more tickets than before: new: %d | old: %d", user.getName(), user.getTokens(), oldBalance));
                 return;
             }
         }
@@ -147,7 +144,7 @@ public class PredictionTest {
     }
 
     @Test
-    public void failAlreadyPickedOption() {
+    void failAlreadyPickedOption() {
         var randomUser = dataMap.iterator().next();
         var prediction = createPrediction();
 
@@ -161,7 +158,7 @@ public class PredictionTest {
     }
 
     @Test
-    public void failNotEnoughTickets() {
+    void failNotEnoughTickets() {
         var randomUser = dataMap.iterator().next();
         var prediction = createPrediction();
 
@@ -173,7 +170,7 @@ public class PredictionTest {
     }
 
     @Test
-    public void failPredictionClosed() {
+    void failPredictionClosed() {
         var randomUser = dataMap.iterator().next();
         var prediction = createPrediction();
         prediction.enter(randomUser, 1, "Option1");
@@ -188,7 +185,7 @@ public class PredictionTest {
     }
 
     @Test
-    public void failIncorrectWinningOption() {
+    void failIncorrectWinningOption() {
         var randomUser = dataMap.iterator().next();
         var prediction = createPrediction();
         prediction.enter(randomUser, 1, "Option1");
@@ -201,8 +198,8 @@ public class PredictionTest {
     }
 
     @Test
-    public void passEnterMultipleTimes() {
-        var randomUser = dataMap.iterator().next().setTickets(100);
+    void passEnterMultipleTimes() {
+        var randomUser = dataMap.iterator().next().setTokens(100);
         var prediction = createPrediction();
 
         int ticketsBet = 0;
@@ -215,25 +212,27 @@ public class PredictionTest {
             System.out.println(result.getMessage());
         }
 
-        assertEquals(ticketsBet, (long) prediction.getEntrantsTicketsMap().get(randomUser));
+        assertEquals(ticketsBet, (long) prediction.getEntrantsTokenMap().get(randomUser));
+
+        System.out.println("Total tickets bet: " + ticketsBet + " | " + prediction.getEntrantsTokenMap().get(randomUser));
     }
 
     @Test
-    public void resetPrediction() {
-        var randomUser = dataMap.iterator().next().setTickets(100);
+    void resetPrediction() {
+        var randomUser = dataMap.iterator().next().setTokens(100);
         var prediction = createPrediction();
 
         prediction.enter(randomUser, 100, "Option1");
 
-        assertEquals(0, randomUser.getTickets());
+        assertEquals(0, randomUser.getTokens());
         assertEquals(1, prediction.getParticipants().size());
-        assertEquals(100, prediction.getEntrantsTicketsMap().get(randomUser).intValue());
+        assertEquals(100, prediction.getEntrantsTokenMap().get(randomUser).intValue());
 
         var result = prediction.reset();
 
         assertEquals(0, prediction.getParticipants().size());
 
-        assertEquals(100, randomUser.getTickets());
+        assertEquals(100, randomUser.getTokens());
 
         assertTrue(result.isSuccessful());
     }

@@ -2,6 +2,7 @@ package tv.ender.firebase.backend;
 
 import com.google.cloud.firestore.DocumentSnapshot;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -10,11 +11,12 @@ import java.util.Map;
 @Data()
 @Accessors(chain = true)
 @AllArgsConstructor(staticName = "of")
+@Builder
 public class UserData {
     private String name;
     private String discordId;
     private String guildId;
-    private int tickets;
+    private int tokens;
     private int losses;
 
     /**
@@ -31,10 +33,17 @@ public class UserData {
             String name = (String) data.get("name");
             String discordId = (String) data.get("discordId");
             String guildId = (String) data.get("guildId");
-            int tickets = ((Long) data.get("tickets")).intValue();
+            int tokens = ((Long) data.get("tokens")).intValue();
             int losses = ((Long) data.get("losses")).intValue();
 
-            return UserData.of(name, discordId, guildId, tickets, losses);
+            var builder = UserData.builder()
+                    .name(name)
+                    .discordId(discordId)
+                    .guildId(guildId)
+                    .tokens(tokens)
+                    .losses(losses);
+
+            return builder.build();
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse user data from document snapshot", e);
         }

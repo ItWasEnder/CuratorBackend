@@ -17,6 +17,7 @@ tasks.withType<Javadoc>{
 
 repositories {
     mavenCentral()
+//    mavenLocal()
 }
 
 dependencies {
@@ -25,8 +26,8 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.26")
 
     /* testing */
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.9.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
+    runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
 
     /* google */
     implementation("com.google.guava:guava:31.1-jre")

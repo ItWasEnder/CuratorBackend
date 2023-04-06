@@ -1,6 +1,8 @@
-package tv.ender.firebase.backend;
+package tv.ender.discord.backend;
 
-public enum SubscriptionStatus {
+public enum BonusStatus {
+    NONE,
+    BOOSTER,
     TIER_1,
     TIER_2,
     TIER_3,

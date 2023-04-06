@@ -1,27 +1,38 @@
 package tv.ender.discord.backend.activities;
 
 import lombok.Getter;
+import lombok.Setter;
 import lombok.experimental.Accessors;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
+import tv.ender.discord.backend.BonusStatus;
 import tv.ender.discord.backend.interfaces.IActivity;
 import tv.ender.firebase.backend.UserData;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Getter
 @Accessors(chain = true)
 public class Raffle implements IActivity {
+    public static final int BASE_TICKETS = 100;
+    public static final int LOSS_MULTIPLIER = 5;
+
     private final ReadWriteLock lock = new ReadWriteLock();
     private final Map<UserData, Integer> entrantsTicketsMap = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean(true);
+    private final AtomicBoolean canEnter = new AtomicBoolean(true);
     private final AtomicLong endTime = new AtomicLong(-1);
-    private final UUID identifier = UUID.randomUUID();
+    private final UUID uuid = UUID.randomUUID();
+    @Setter
+    private int winnerSlots = 1;
 
     @Override
     public Set<UserData> getParticipants() {
@@ -49,16 +60,44 @@ public class Raffle implements IActivity {
      *
      * @return the winner of the raffle
      */
-    public Result<UserData> end() {
+    public Result<UserData[]> end() {
         /* shutdown raffle */
         this.running.set(false);
 
         /* Pick a random winner weighting to the number of tickets they have */
         this.endTime.set(System.currentTimeMillis());
-        // TODO: Implement
 
+        final UserData[] winners = new UserData[this.winnerSlots];
+        final int totalTickets = this.getTotalTickets();
+        final Map<UserData, Double> entrantsWeightMap = new HashMap<>();
+        final Random random = ThreadLocalRandom.current();
 
-        return Result.fail("Not implemented");
+        /* calculate probabilities of entrants */
+        try {
+            this.lock.readLock();
+
+            for (final Map.Entry<UserData, Integer> entry : this.entrantsTicketsMap.entrySet()) {
+                entrantsWeightMap.put(entry.getKey(), (double) entry.getValue() / totalTickets);
+            }
+        } finally {
+            this.lock.readUnlock();
+        }
+
+        for (int i = 0; i < this.winnerSlots; i++) {
+            double randomValue = random.nextDouble();
+            double cumulativeProbability = 0.0;
+
+            for (final Map.Entry<UserData, Double> entry : entrantsWeightMap.entrySet()) {
+                cumulativeProbability += entry.getValue();
+
+                if (randomValue <= cumulativeProbability) {
+                    winners[i] = entry.getKey();
+                    break;
+                }
+            }
+        }
+
+        return Result.pass(winners, "Raffle ended successfully");
     }
 
     /**
@@ -73,10 +112,7 @@ public class Raffle implements IActivity {
         this.running.set(false);
 
         try {
-            /* refund all tickets */
             this.lock.writeLock();
-            this.entrantsTicketsMap.forEach((user, tickets) -> user.setTickets(user.getTickets() + tickets));
-
             this.entrantsTicketsMap.clear();
         } finally {
             this.lock.writeUnlock();
@@ -90,30 +126,27 @@ public class Raffle implements IActivity {
     /**
      * Enter a user into the raffle
      *
-     * @param user    The user to enter
-     * @param tickets The number of tickets to enter with
+     * @param user The user to enter
+     * @param tier The tier of the user
      */
-    public Result<UserData> enter(UserData user, int tickets) {
+    public Result<UserData> enter(UserData user, BonusStatus tier) {
         if (!this.running.get()) {
             return Result.fail(user, "Raffle is not running");
         }
 
-        if (tickets > user.getTickets()) {
-            Result.fail(user, "Insufficient tickets: %d > %d".formatted(tickets, user.getTickets()));
+        if (!this.canEnter.get()) {
+            return Result.fail(user, "Raffle is not accepting entries");
         }
+
+        /* calculate tickets */
+        int tickets = BASE_TICKETS + this.getTierBonus(tier) + (user.getLosses() * LOSS_MULTIPLIER);
 
         /* deposit tickets */
         try {
             this.lock.readLock();
-            if (this.entrantsTicketsMap.containsKey(user)) {
-                this.lock.readUnlock();
 
-                try {
-                    this.lock.writeLock();
-                    this.entrantsTicketsMap.put(user, tickets + this.entrantsTicketsMap.get(user));
-                } finally {
-                    this.lock.writeUnlock();
-                }
+            if (this.entrantsTicketsMap.containsKey(user)) {
+                return Result.fail(user, "User already entered into the raffle");
             } else {
                 this.lock.readUnlock();
 
@@ -128,10 +161,17 @@ public class Raffle implements IActivity {
             this.lock.releaseAnyReadLocks();
         }
 
-        /* subtract tickets */
-        user.setTickets(user.getTickets() - tickets);
+        return Result.pass(user, "Entered with %d tickets into raffle".formatted(tickets));
+    }
 
-        return Result.pass(user, "Deposited %d tickets into raffle".formatted(tickets));
+    private int getTierBonus(BonusStatus tier) {
+        return switch (tier) {
+            case BOOSTER -> 25;
+            case TIER_1, TIER_1_GIFTED -> 50;
+            case TIER_2, TIER_2_GIFTED -> 100;
+            case TIER_3, TIER_3_GIFTED -> 150;
+            default -> 0;
+        };
     }
 
     @Override
