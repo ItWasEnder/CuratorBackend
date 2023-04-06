@@ -1,6 +1,6 @@
 package tv.ender;
 
-import botrino.api.Botrino;
+import tv.ender.discord.Discord;
 import tv.ender.firebase.Firebase;
 
 import java.io.IOException;
@@ -19,7 +19,6 @@ public class App {
         Firebase.get();
 
         /* startup discord bot */
-//        Discord.get().connect();
-        Botrino.run(args);
+        Discord.get().connect();
     }
 }
