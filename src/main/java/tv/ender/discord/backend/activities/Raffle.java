@@ -36,23 +36,11 @@ public class Raffle implements IActivity {
 
     @Override
     public Set<UserData> getParticipants() {
-        try {
-            this.lock.readLock();
-
-            return this.entrantsTicketsMap.keySet();
-        } finally {
-            this.lock.readUnlock();
-        }
+        return this.lock.read(this.entrantsTicketsMap::keySet);
     }
 
     public int getTotalTickets() {
-        try {
-            this.lock.readLock();
-
-            return this.entrantsTicketsMap.values().stream().mapToInt(Integer::intValue).sum();
-        } finally {
-            this.lock.readUnlock();
-        }
+        return this.lock.read(() -> this.entrantsTicketsMap.values().stream().mapToInt(Integer::intValue).sum());
     }
 
     /**
@@ -73,15 +61,11 @@ public class Raffle implements IActivity {
         final Random random = ThreadLocalRandom.current();
 
         /* calculate probabilities of entrants */
-        try {
-            this.lock.readLock();
-
+        this.lock.read(() -> {
             for (final Map.Entry<UserData, Integer> entry : this.entrantsTicketsMap.entrySet()) {
                 entrantsWeightMap.put(entry.getKey(), (double) entry.getValue() / totalTickets);
             }
-        } finally {
-            this.lock.readUnlock();
-        }
+        });
 
         for (int i = 0; i < this.winnerSlots; i++) {
             double randomValue = random.nextDouble();
@@ -111,12 +95,7 @@ public class Raffle implements IActivity {
         /* disable entries */
         this.running.set(false);
 
-        try {
-            this.lock.writeLock();
-            this.entrantsTicketsMap.clear();
-        } finally {
-            this.lock.writeUnlock();
-        }
+        this.lock.write(this.entrantsTicketsMap::clear);
 
         this.running.set(true);
 
@@ -142,24 +121,19 @@ public class Raffle implements IActivity {
         int tickets = BASE_TICKETS + this.getTierBonus(tier) + (user.getLosses() * LOSS_MULTIPLIER);
 
         /* deposit tickets */
-        try {
-            this.lock.readLock();
-
+        var enterCheck = this.lock.read(() -> {
             if (this.entrantsTicketsMap.containsKey(user)) {
                 return Result.fail(user, "User already entered into the raffle");
             } else {
-                this.lock.readUnlock();
-
-                try {
-                    this.lock.writeLock();
-                    this.entrantsTicketsMap.put(user, tickets);
-                } finally {
-                    this.lock.writeUnlock();
-                }
+                return Result.pass(user, "User can enter");
             }
-        } finally {
-            this.lock.releaseAnyReadLocks();
+        });
+
+        if (!enterCheck.isSuccessful()) {
+            return enterCheck;
         }
+
+        this.lock.write(() -> this.entrantsTicketsMap.put(user, tickets));
 
         return Result.pass(user, "Entered with %d tickets into raffle".formatted(tickets));
     }

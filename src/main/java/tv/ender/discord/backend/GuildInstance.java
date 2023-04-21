@@ -37,26 +37,14 @@ public class GuildInstance {
      */
     public CompletableFuture<UserData> addUser(UserData userData) {
         final var future = new CompletableFuture<UserData>();
-
-        try {
-            this.lock.readLock();
-
-            if (this.userDataMap.containsKey(userData.getDiscordId())) {
-                future.completeExceptionally(new IllegalArgumentException("User already exists!"));
-                return future;
+        
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> this.userDataMap.containsKey(userData.getDiscordId()))) {
+                throw new IllegalArgumentException("User already exists!");
+            } else {
+                return this.lock.write(() -> this.userDataMap.put(userData.getDiscordId(), userData));
             }
-
-            this.lock.readUnlock();
-            try {
-                this.lock.writeLock();
-
-                future.complete(this.userDataMap.put(userData.getDiscordId(), userData));
-            } finally {
-                this.lock.writeUnlock();
-            }
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        });
 
         return future;
     }
@@ -70,32 +58,13 @@ public class GuildInstance {
     public CompletableFuture<UserData> removeUser(String discordId) {
         final var future = new CompletableFuture<UserData>();
 
-        try {
-            this.lock.readLock();
-
-            if (!this.userDataMap.containsKey(discordId)) {
-                future.completeExceptionally(new NullPointerException("User does not exist!"));
-                return future;
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> !this.userDataMap.containsKey(discordId))) {
+                throw new IllegalArgumentException("User does not exist!");
+            } else {
+                return this.lock.write(() -> this.userDataMap.remove(discordId));
             }
-            final var user = this.userDataMap.get(discordId);
-
-            /* remove user */
-            this.lock.readUnlock();
-            try {
-                this.lock.writeLock();
-
-                this.userDataMap.remove(discordId);
-            } finally {
-                this.lock.writeUnlock();
-            }
-
-            /* destroy data */
-            // TODO Unknown if this should happen. Depends on data storage cost.
-
-            future.complete(user);
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        });
 
         return future;
     }
@@ -109,17 +78,9 @@ public class GuildInstance {
     public CompletableFuture<UserData> getUser(String discordId) {
         final var future = new CompletableFuture<UserData>();
 
-        try {
-            this.lock.readLock();
-
-            try {
-                future.complete(this.userDataMap.get(discordId));
-            } catch (ClassCastException e) {
-                future.completeExceptionally(e);
-            }
-        } finally {
-            this.lock.readUnlock();
-        }
+        future.completeAsync(() -> {
+            return this.lock.read(() -> this.userDataMap.get(discordId));
+        });
 
         return future;
     }
@@ -133,27 +94,14 @@ public class GuildInstance {
     public <T extends IActivity> CompletableFuture<T> addActivity(T activity) {
         final var future = new CompletableFuture<T>();
 
-        try {
-            this.lock.readLock();
-
-            if (this.activities.containsKey(activity.getUuid())) {
-                future.completeExceptionally(new IllegalArgumentException("Activity already exists!"));
-                return future;
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> this.activities.containsKey(activity.getUuid()))) {
+                throw new IllegalArgumentException("Activity already exists!");
+            } else {
+                this.lock.write(() -> this.activities.put(activity.getUuid(), activity));
+                return activity;
             }
-
-            this.lock.readUnlock();
-            try {
-                this.lock.writeLock();
-
-                this.activities.put(activity.getUuid(), activity);
-
-                future.complete(activity);
-            } finally {
-                this.lock.writeUnlock();
-            }
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        });
 
         return future;
     }
@@ -167,19 +115,9 @@ public class GuildInstance {
     public <T extends IActivity> CompletableFuture<T> getActivity(UUID uuid) {
         final var future = new CompletableFuture<T>();
 
-        try {
-            this.lock.readLock();
-
-            var got = this.activities.get(uuid);
-
-            try {
-                future.complete((T) got);
-            } catch (ClassCastException e) {
-                future.completeExceptionally(e);
-            }
-        } finally {
-            this.lock.readUnlock();
-        }
+        future.completeAsync(() -> {
+            return this.lock.read(() -> (T) this.activities.get(uuid));
+        });
 
         return future;
     }

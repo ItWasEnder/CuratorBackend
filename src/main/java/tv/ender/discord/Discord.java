@@ -58,7 +58,7 @@ public class Discord {
 
                     this.client = gateway;
 
-//                    this.registerListener(new MessageCreateListener());
+                    this.registerListener(new MessageCreateListener());
 
                     return Mono.just(gateway);
                 })
@@ -101,17 +101,13 @@ public class Discord {
     public CompletableFuture<Result<GuildInstance>> getGuildInstance(String guildId) {
         final var future = new CompletableFuture<Result<GuildInstance>>();
 
-        try {
-            this.lock.readLock();
-
-            if (!this.guildInstances.containsKey(guildId)) {
-                future.complete(Result.fail("No Guild instance registered for " + guildId));
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> !this.guildInstances.containsKey(guildId))) {
+                return Result.fail("No Guild instance registered for " + guildId);
             } else {
-                future.complete(Result.pass(this.guildInstances.get(guildId), "Guild instance is available"));
+                return Result.pass(this.guildInstances.get(guildId), "Guild instance is available");
             }
-        } finally {
-            this.lock.readUnlock();
-        }
+        });
 
         return future;
     }
@@ -125,27 +121,19 @@ public class Discord {
     public CompletableFuture<Result<GuildInstance>> registerGuildInstance(GuildData guildData) {
         final var future = new CompletableFuture<Result<GuildInstance>>();
 
-        try {
-            this.lock.readLock();
-
-            if (!this.guildInstances.containsKey(guildData.getGuildId())) {
-                this.lock.readUnlock();
-
-                try {
-                    this.lock.writeLock();
-
-                    var inst = this.guildInstances.put(guildData.getGuildId(), GuildInstance.of(guildData));
-
-                    future.complete(Result.pass(inst, "Guild instance registered"));
-                } finally {
-                    this.lock.writeUnlock();
-                }
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> this.guildInstances.containsKey(guildData.getGuildId()))) {
+                return Result.fail("Guild instance already registered for guild " + guildData.getGuildId());
             } else {
-                future.complete(Result.fail("Guild instance already registered for guild " + guildData.getGuildId()));
+                return this.lock.write(() -> {
+                    final var inst = GuildInstance.of(guildData);
+
+                    this.guildInstances.put(guildData.getGuildId(), inst);
+
+                    return Result.pass(inst, "Guild instance registered");
+                });
             }
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        });
 
         return future;
     }

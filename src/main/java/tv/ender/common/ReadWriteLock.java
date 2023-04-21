@@ -2,10 +2,8 @@ package tv.ender.common;
 
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
-/**
- * Generic ReadWrite Reentrant Lock
- */
 public class ReadWriteLock {
     private final java.util.concurrent.locks.ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -33,11 +31,40 @@ public class ReadWriteLock {
         this.lock.writeLock().unlock();
     }
 
-    public void releaseAnyReadLocks() {
-        ReentrantReadWriteLock rwLock = (ReentrantReadWriteLock) this.lock;
+    /* runnable injects */
+    public void read(Runnable runnable) {
+        this.readLock();
+        try {
+            runnable.run();
+        } finally {
+            this.readUnlock();
+        }
+    }
 
-        while (rwLock.getReadHoldCount() > 0) {
-            rwLock.readLock().unlock();
+    public <T> T read(Supplier<T> supplier) {
+        this.readLock();
+        try {
+            return supplier.get();
+        } finally {
+            this.readUnlock();
+        }
+    }
+
+    public void write(Runnable runnable) {
+        this.writeLock();
+        try {
+            runnable.run();
+        } finally {
+            this.writeUnlock();
+        }
+    }
+
+    public <T> T write(Supplier<T> supplier) {
+        this.writeLock();
+        try {
+            return supplier.get();
+        } finally {
+            this.writeUnlock();
         }
     }
 }

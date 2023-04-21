@@ -28,23 +28,11 @@ public class Prediction implements IActivity {
 
     @Override
     public Set<UserData> getParticipants() {
-        try {
-            this.lock.readLock();
-
-            return this.entrantsTokenMap.keySet();
-        } finally {
-            this.lock.readUnlock();
-        }
+        return this.lock.read(this.entrantsTokenMap::keySet);
     }
 
     public int getTotalTickets() {
-        try {
-            this.lock.readLock();
-
-            return this.entrantsTokenMap.values().stream().mapToInt(Integer::intValue).sum();
-        } finally {
-            this.lock.readUnlock();
-        }
+        return this.lock.read(() -> this.entrantsTokenMap.values().stream().mapToInt(Integer::intValue).sum());
     }
 
     /**
@@ -59,8 +47,8 @@ public class Prediction implements IActivity {
 
         /* Pick a random winner weighting to the number of tickets they have */
         this.endTime.set(System.currentTimeMillis());
-        try {
-            this.lock.readLock();
+
+        return this.lock.read(() -> {
             if (!this.entrantPick.containsValue(winning)) {
                 return Result.fail("Invalid winning option \"%s\" for prediction \"%s\"".formatted(winning, this.uuid));
             }
@@ -91,9 +79,7 @@ public class Prediction implements IActivity {
 
             return Result.pass(winners, "Prediction ended with %d winners and %d total bets"
                     .formatted(winners.size(), totalBets));
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        });
     }
 
     /**
@@ -107,15 +93,11 @@ public class Prediction implements IActivity {
         /* disable entries */
         this.running.set(false);
 
-        try {
+        this.lock.write(() -> {
             /* refund all tickets */
-            this.lock.writeLock();
             this.entrantsTokenMap.forEach((user, tickets) -> user.setTokens(user.getTokens() + tickets));
-
             this.entrantsTokenMap.clear();
-        } finally {
-            this.lock.writeUnlock();
-        }
+        });
 
         this.running.set(true);
 
@@ -138,49 +120,23 @@ public class Prediction implements IActivity {
         }
 
         /* check user choice */
-        try {
-            this.lock.readLock();
+        var choiceResult = this.lock.read(() -> {
             if (this.entrantPick.containsKey(user) && !this.entrantPick.get(user).equals(option)) {
                 return Result.fail(user, "Cannot chance choice after entering");
             } else {
-                this.lock.readUnlock();
-
-                try {
-                    this.lock.writeLock();
-                    this.entrantPick.put(user, option);
-                } finally {
-                    this.lock.writeUnlock();
-                }
+                return Result.pass(user, "Choice is valid");
             }
-        } finally {
-            this.lock.releaseAnyReadLocks();
+        });
+
+        if (!choiceResult.isSuccessful()) {
+            return choiceResult;
+        } else {
+            this.lock.write(() -> this.entrantPick.put(user, option));
         }
 
         /* deposit tokens */
-        try {
-            this.lock.readLock();
-            if (this.entrantsTokenMap.containsKey(user)) {
-                this.lock.readUnlock();
-
-                try {
-                    this.lock.writeLock();
-                    this.entrantsTokenMap.put(user, tokens + this.entrantsTokenMap.get(user));
-                } finally {
-                    this.lock.writeUnlock();
-                }
-            } else {
-                this.lock.readUnlock();
-
-                try {
-                    this.lock.writeLock();
-                    this.entrantsTokenMap.put(user, tokens);
-                } finally {
-                    this.lock.writeUnlock();
-                }
-            }
-        } finally {
-            this.lock.releaseAnyReadLocks();
-        }
+        var bet = this.lock.read(() -> this.entrantsTokenMap.getOrDefault(user, 0));
+        this.lock.write(() -> this.entrantsTokenMap.put(user, bet + tokens));
 
         /* subtract tokens */
         user.setTokens(user.getTokens() - tokens);
