@@ -120,23 +120,15 @@ public class Prediction implements IActivity {
         }
 
         /* check user choice */
-        var choiceResult = this.lock.read(() -> {
-            if (this.entrantPick.containsKey(user) && !this.entrantPick.get(user).equals(option)) {
-                return Result.fail(user, "Cannot chance choice after entering");
-            } else {
-                return Result.pass(user, "Choice is valid");
-            }
-        });
-
-        if (!choiceResult.isSuccessful()) {
-            return choiceResult;
-        } else {
-            this.lock.write(() -> this.entrantPick.put(user, option));
+        if (this.lock.read(() -> this.entrantPick.containsKey(user) && !this.entrantPick.get(user).equals(option))) {
+            return Result.fail(user, "Cannot chance choice after entering");
         }
 
         /* deposit tokens */
-        var bet = this.lock.read(() -> this.entrantsTokenMap.getOrDefault(user, 0));
-        this.lock.write(() -> this.entrantsTokenMap.put(user, bet + tokens));
+        this.lock.write(() -> {
+            this.entrantsTokenMap.compute(user, (__, bet) -> (bet == null) ? tokens : bet + tokens);
+            this.entrantPick.computeIfAbsent(user, k -> option);
+        });
 
         /* subtract tokens */
         user.setTokens(user.getTokens() - tokens);

@@ -79,7 +79,7 @@ class PredictionTest {
                             toUse.remove(data);
                         }
                     } else {
-                        System.out.println(data.getName() + " " + result.getMessage());
+                        fail(data.getName() + " " + result.getMessage());
                     }
                 }
 
