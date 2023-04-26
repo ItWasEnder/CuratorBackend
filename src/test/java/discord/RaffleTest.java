@@ -63,7 +63,7 @@ class RaffleTest {
                         continue;
                     }
 
-                    if (lock.read(() -> calculatedTickets.containsKey(data))) {
+                    if (lock.read(() -> calculatedTickets.containsKey(data.getDiscordId()))) {
                         System.out.println("Handled by different thread...");
                         return;
                     }
