@@ -1,20 +1,28 @@
 package tv.ender.discord;
 
+import com.google.firebase.database.annotations.NotNull;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.Event;
+import discord4j.discordjson.json.ApplicationCommandRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
+import tv.ender.common.Promise;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
 import tv.ender.discord.backend.GuildInstance;
+import tv.ender.discord.backend.commands.Commands;
+import tv.ender.discord.backend.interfaces.Command;
 import tv.ender.discord.backend.interfaces.EventListener;
 import tv.ender.discord.listeners.MessageCreateListener;
+import tv.ender.discord.listeners.SlashCommandListener;
 import tv.ender.firebase.backend.GuildData;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +58,8 @@ public class Discord {
     public void connect() {
         System.out.println("Initializing Discord Bot...");
 
+        Promise<Long> applicationID = new Promise<>();
+
         DiscordClientBuilder.create(System.getenv().get("BOT_TOKEN"))
                 .build()
                 .login()
@@ -59,12 +69,39 @@ public class Discord {
                     this.client = gateway;
 
                     this.registerListener(new MessageCreateListener());
+                    this.registerListener(new SlashCommandListener());
+
+                    applicationID.set(gateway.getRestClient().getApplicationId().block());
 
                     return Mono.just(gateway);
                 })
                 .onErrorResume(throwable -> {
                     LOG.error("Failed to connect to Discord API!", throwable);
                     return Mono.empty();
+                })
+                .doOnNext(gateway -> {
+                    System.out.println("Application ID: " + applicationID.get());
+                })
+                .flatMap(gateway -> {
+                    return Mono.just(gateway.getGuilds());
+                })
+                .doOnNext(guilds -> {
+                    guilds.doOnNext(guild -> {
+                        System.out.println("Bot in Guild: " + guild.getName());
+
+                        List<ApplicationCommandRequest> commandRequests = new ArrayList<>();
+
+                        for (Command cmd : Commands.values()) {
+                            commandRequests.add(this.constructRequest(cmd));
+                        }
+
+                        this.client.getRestClient().getApplicationService().bulkOverwriteGuildApplicationCommand(
+                                applicationID.get(),
+                                guild.getId().asLong(),
+                                commandRequests
+                        ).subscribe();
+
+                    }).subscribe();
                 })
                 .timeout(Duration.of(10, ChronoUnit.SECONDS))
                 .block();
@@ -73,6 +110,20 @@ public class Discord {
         this.client.onDisconnect().block();
 
         System.out.println("Shutting down Discord Bot...");
+    }
+
+    @NotNull
+    private ApplicationCommandRequest constructRequest(@NotNull Command command) {
+        var builder = ApplicationCommandRequest.builder();
+
+        builder.name(command.cmd());
+        builder.description(command.description());
+
+        for (var option : command.options()) {
+            builder.addOption(option);
+        }
+
+        return builder.build();
     }
 
     /**
