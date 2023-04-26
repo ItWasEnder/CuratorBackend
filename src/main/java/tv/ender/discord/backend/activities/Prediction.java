@@ -119,6 +119,11 @@ public class Prediction implements IActivity {
             return Result.fail(user, "Insufficient tokens: %d > %d".formatted(tokens, user.getTokens()));
         }
 
+        /* bet cannot be Zero */
+        if (tokens <= 0) {
+            return Result.fail(user, "Bet must be greater than zero");
+        }
+
         /* check user choice */
         if (this.lock.read(() -> this.entrantPick.containsKey(user) && !this.entrantPick.get(user).equals(option))) {
             return Result.fail(user, "Cannot chance choice after entering");

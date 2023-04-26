@@ -10,6 +10,7 @@ import tv.ender.discord.backend.interfaces.IActivity;
 import tv.ender.firebase.backend.UserData;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -55,7 +56,7 @@ public class Raffle implements IActivity {
         /* Pick a random winner weighting to the number of tickets they have */
         this.endTime.set(System.currentTimeMillis());
 
-        final UserData[] winners = new UserData[this.winnerSlots];
+        final Set<UserData> winners = new HashSet<>();
         final int totalTickets = this.getTotalTickets();
         final Map<UserData, Double> entrantsWeightMap = new HashMap<>();
         final Random random = ThreadLocalRandom.current();
@@ -67,21 +68,27 @@ public class Raffle implements IActivity {
             }
         });
 
-        for (int i = 0; i < this.winnerSlots; i++) {
+        while (winners.size() != this.winnerSlots) {
             double randomValue = random.nextDouble();
             double cumulativeProbability = 0.0;
 
             for (final Map.Entry<UserData, Double> entry : entrantsWeightMap.entrySet()) {
                 cumulativeProbability += entry.getValue();
 
+                /* cannot win twice */
+                if (winners.contains(entry.getKey())) {
+                    continue;
+                }
+
+                /* find winner and break */
                 if (randomValue <= cumulativeProbability) {
-                    winners[i] = entry.getKey();
+                    winners.add(entry.getKey());
                     break;
                 }
             }
         }
 
-        return Result.pass(winners, "Raffle ended successfully");
+        return Result.pass(winners.toArray(UserData[]::new), "Raffle ended successfully");
     }
 
     /**
@@ -118,24 +125,20 @@ public class Raffle implements IActivity {
         }
 
         /* calculate tickets */
-        int tickets = BASE_TICKETS + this.getTierBonus(tier) + (user.getLosses() * LOSS_MULTIPLIER);
+        int tickets = this.calculateTickets(user, tier);
 
         /* deposit tickets */
-        var enterCheck = this.lock.read(() -> {
-            if (this.entrantsTicketsMap.containsKey(user)) {
-                return Result.fail(user, "User already entered into the raffle");
-            } else {
-                return Result.pass(user, "User can enter");
-            }
-        });
-
-        if (!enterCheck.isSuccessful()) {
-            return enterCheck;
+        if (this.lock.read(() -> this.entrantsTicketsMap.containsKey(user))) {
+            return Result.fail(user, "User already entered into the raffle");
         }
 
-        this.lock.write(() -> this.entrantsTicketsMap.put(user, tickets));
+        this.lock.write(() -> this.entrantsTicketsMap.putIfAbsent(user, tickets));
 
         return Result.pass(user, "Entered with %d tickets into raffle".formatted(tickets));
+    }
+
+    public int calculateTickets(UserData user, BonusStatus tier) {
+        return BASE_TICKETS + this.getTierBonus(tier) + (user.getLosses() * LOSS_MULTIPLIER);
     }
 
     private int getTierBonus(BonusStatus tier) {

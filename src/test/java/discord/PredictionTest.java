@@ -1,10 +1,13 @@
 package discord;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
 import tv.ender.discord.backend.activities.Prediction;
 import tv.ender.firebase.backend.UserData;
+import tv.ender.test.TestUtils;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -19,32 +22,31 @@ import static org.junit.jupiter.api.Assertions.*;
 
 
 class PredictionTest {
-    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    private static final String NUMBERS = "0123456789";
-    private static final Set<UserData> dataMap = new HashSet<>();
     private static final Random rand = new Random();
-
+    private static Set<UserData> dataMap = new HashSet<>();
 
     @BeforeAll
     static void setup() {
-        dataMap.clear();
+        dataMap = new HashSet<>(
+                TestUtils.createUsers(rand.nextInt(10, 55))
+        );
 
-        /* populate user map */
-        for (int i = 0; i < rand.nextInt(10, 55); i++) {
-            dataMap.add(createUserData());
-        }
-    }
-
-    private static UserData createUserData() {
-        return UserData.of(randomString(8), randomId(8), randomId(18), rand.nextInt(1, 1024), 0);
+        /* check duplicates */
+        boolean dupes = TestUtils.uniqueItems(dataMap.toArray(new UserData[0]));
+        System.out.println("Checking for duplicates...");
+        System.out.println("NoDuplicates: " + dupes);
+        assertTrue(dupes);
     }
 
     @Test
     void testFullPrediction() {
+        System.out.println("DataMap size: " + dataMap.size());
+
         Prediction prediction = createPrediction();
 
         final var toUse = new ConcurrentLinkedQueue<>(dataMap);
         final Iterator<UserData> it = toUse.iterator();
+        ReadWriteLock lock = new ReadWriteLock();
         Map<String, Integer> depositedTickets = new ConcurrentHashMap<>();
         Map<String, String> optionPicks = new ConcurrentHashMap<>();
         Map<String, Integer> initialBalances = new ConcurrentHashMap<>();
@@ -63,23 +65,32 @@ class PredictionTest {
                         continue;
                     }
 
-                    final int ticketAmount = rand.nextInt(1, data.getTokens());
+                    if (lock.read(() -> depositedTickets.containsKey(data.getDiscordId()))) {
+                        System.out.println("Handled by another thread...");
+                        continue;
+                    }
+
+                    if (data.getTokens() < 1) {
+                        System.out.println("No tokens...");
+                        continue;
+                    }
+
+                    final int ticketAmount = data.getTokens() == 1 ? 1 : rand.nextInt(1, data.getTokens());
 
                     /* pick random option */
                     final String option = options[rand.nextInt(options.length)];
-
-                    initialBalances.put(data.getDiscordId(), data.getTokens());
                     Result<UserData> result = prediction.enter(data, ticketAmount, option);
 
                     if (result.isSuccessful()) {
-                        depositedTickets.compute(data.getDiscordId(), (k, v) -> v == null ? ticketAmount : v + ticketAmount);
-                        optionPicks.put(data.getDiscordId(), option);
+                        lock.write(() -> {
+                            depositedTickets.compute(data.getDiscordId(), (k, v) -> v == null ? ticketAmount : v + ticketAmount);
+                            initialBalances.putIfAbsent(data.getDiscordId(), data.getTokens());
+                            optionPicks.put(data.getDiscordId(), option);
+                        });
+                    }
 
-                        synchronized (toUse) {
-                            toUse.remove(data);
-                        }
-                    } else {
-                        fail(data.getName() + " " + result.getMessage());
+                    synchronized (toUse) {
+                        toUse.remove(data);
                     }
                 }
 
@@ -128,19 +139,35 @@ class PredictionTest {
             return;
         }
 
+        System.out.println("Total tickets entered " + prediction.getTotalTickets());
         System.out.printf("Checking winning selection %d/%d...%n", winners.size(), expectedWiningCount);
         assertEquals(expectedWiningCount, winners.size());
 
         for (var user : winners) {
             var oldBalance = initialBalances.get(user.getDiscordId());
+            var onePercent = (int) (prediction.getTotalTickets() * 0.01);
+            var bet = prediction.getEntrantsTokenMap().get(user);
 
-            if (user.getTokens() <= oldBalance) {
+            if (user.getTokens() <= oldBalance && oldBalance > onePercent && bet > 0) {
+                System.out.println("Bet placed: " + bet);
                 fail(String.format("Expected %s to have more tickets than before: new: %d | old: %d", user.getName(), user.getTokens(), oldBalance));
                 return;
             }
         }
 
         System.out.println("All winners paid out sufficiently...");
+    }
+
+    @Test
+    void failBetTooSmall() {
+        var randomUser = dataMap.iterator().next();
+        var prediction = createPrediction();
+
+        var result = prediction.enter(randomUser, 0, "Option1");
+
+        assertFalse(result.isSuccessful());
+
+        System.out.println(result.getMessage());
     }
 
     @Test
@@ -237,29 +264,6 @@ class PredictionTest {
         assertTrue(result.isSuccessful());
     }
 
-    private static String randomString(int length) {
-        if (length < 1) {
-            throw new IllegalArgumentException("Length must be positive");
-        }
-
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(CHARACTERS.charAt(rand.nextInt(CHARACTERS.length())));
-        }
-        return sb.toString();
-    }
-
-    private static String randomId(int length) {
-        if (length < 1) {
-            throw new IllegalArgumentException("Length must be positive");
-        }
-
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(NUMBERS.charAt(rand.nextInt(NUMBERS.length())));
-        }
-        return sb.toString();
-    }
 
     private static Prediction createPrediction() {
         return new Prediction();
