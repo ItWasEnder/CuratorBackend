@@ -12,17 +12,16 @@ import tv.ender.common.Promise;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
 import tv.ender.discord.backend.GuildInstance;
-import tv.ender.discord.backend.commands.Commands;
 import tv.ender.discord.backend.interfaces.Command;
 import tv.ender.discord.backend.interfaces.EventListener;
 import tv.ender.discord.listeners.MessageCreateListener;
 import tv.ender.discord.listeners.SlashCommandListener;
+import tv.ender.firebase.Firebase;
 import tv.ender.firebase.backend.GuildData;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,41 +74,49 @@ public class Discord {
 
                     return Mono.just(gateway);
                 })
+                .flatMap(gateway -> Mono.just(gateway.getGuilds()))
+                .doOnNext(guilds -> guilds.doOnNext(guild -> {
+                    final var doc = Firebase.get().getGuild(guild.getId().asString()).join();
+                    GuildInstance instance = null;
+
+                    if (!doc.exists()) {
+                        final var dat = GuildData.of(guild);
+                        instance = this.registerGuildInstance(dat).join().getHolder();
+                    } else {
+                        final var dat = GuildData.fromDocument(doc);
+                        /* update member count */
+                        dat.setMembers(guild.getMemberCount());
+                        instance = this.registerGuildInstance(dat).join().getHolder();
+                    }
+
+                    /* reference guild entity */
+                    if (instance != null) {
+                        instance.setGuild(guild);
+                    }
+                }).blockLast())
+                .timeout(Duration.of(10, ChronoUnit.SECONDS))
                 .onErrorResume(throwable -> {
                     LOG.error("Failed to connect to Discord API!", throwable);
                     return Mono.empty();
                 })
-                .doOnNext(gateway -> {
-                    System.out.println("Application ID: " + applicationID.get());
-                })
-                .flatMap(gateway -> {
-                    return Mono.just(gateway.getGuilds());
-                })
-                .doOnNext(guilds -> {
-                    guilds.doOnNext(guild -> {
-                        System.out.println("Bot in Guild: " + guild.getName());
-
-                        List<ApplicationCommandRequest> commandRequests = new ArrayList<>();
-
-                        for (Command cmd : Commands.values()) {
-                            commandRequests.add(this.constructRequest(cmd));
-                        }
-
-                        this.client.getRestClient().getApplicationService().bulkOverwriteGuildApplicationCommand(
-                                applicationID.get(),
-                                guild.getId().asLong(),
-                                commandRequests
-                        ).subscribe();
-
-                    }).subscribe();
-                })
-                .timeout(Duration.of(10, ChronoUnit.SECONDS))
                 .block();
+
+        System.out.println("Registered Guilds: " + this.guildInstances.size());
 
         /* keep thread alive */
         this.client.onDisconnect().block();
 
         System.out.println("Shutting down Discord Bot...");
+    }
+
+    public void saveGuilds() {
+        /* timestamp and say its saving */
+        System.out.println("Saving guilds to firebase...");
+        this.lock.read(() -> {
+            for (var instance : this.guildInstances.values()) {
+                Firebase.get().writeGuild(instance.getGuildData()).join();
+            }
+        });
     }
 
     @NotNull
@@ -184,6 +191,32 @@ public class Discord {
                     return Result.pass(inst, "Guild instance registered");
                 });
             }
+        });
+
+        return future;
+    }
+
+    /**
+     * Checks if a guild is registered
+     *
+     * @param guildId The guild ID to check
+     * @return A completable future that will complete with the result of the operation
+     */
+    public CompletableFuture<Boolean> isGuildRegistered(String guildId) {
+        final var future = new CompletableFuture<Boolean>();
+
+        future.completeAsync(() -> {
+            return this.lock.read(() -> this.guildInstances.containsKey(guildId));
+        });
+
+        return future;
+    }
+
+    public CompletableFuture<Collection<GuildInstance>> getGuildInstances() {
+        final var future = new CompletableFuture<Collection<GuildInstance>>();
+
+        future.completeAsync(() -> {
+            return this.lock.read(this.guildInstances::values);
         });
 
         return future;

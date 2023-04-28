@@ -15,6 +15,13 @@ public class App {
             throw new RuntimeException(e);
         }
 
+        /* shutdown routine */
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Discord.get().saveGuilds();
+            
+            Thread.currentThread().interrupt();
+        }));
+
         /* init firebase */
         Firebase.get();
 

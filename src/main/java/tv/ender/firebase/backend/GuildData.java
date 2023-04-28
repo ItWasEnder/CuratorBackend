@@ -1,6 +1,7 @@
 package tv.ender.firebase.backend;
 
 import com.google.cloud.firestore.DocumentSnapshot;
+import discord4j.core.object.entity.Guild;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +25,22 @@ public class GuildData {
     @Setter(AccessLevel.NONE)
     private boolean banned;
     private int startingTickets;
+    private int members;
+
+    public static GuildData of(Guild guild) {
+        var builder = GuildData.builder()
+                .guildId(guild.getId().asString())
+                .guildName(guild.getName())
+                .botPrefix("!")
+                .botStatus("online")
+                .activityType("playing")
+                .adminRoles(new ArrayList<>())
+                .banned(false)
+                .members(guild.getMemberCount())
+                .startingTickets(100);
+
+        return builder.build();
+    }
 
     /**
      * Bans the guild from using the bot
@@ -48,8 +65,8 @@ public class GuildData {
             String botPrefix = (String) data.get("botPrefix");
             String botStatus = (String) data.get("botStatus");
             String activityType = (String) data.get("activityType");
-            String[] arrRoles = (String[]) data.get("adminRoles");
-            boolean banned = Boolean.parseBoolean((String) data.get("banned"));
+            ArrayList<String> arrRoles = (ArrayList<String>) data.get("adminRoles");
+            boolean banned = (Boolean) data.get("banned");
             int startingTickets = ((Long) data.get("startingTickets")).intValue();
 
             var builder = GuildData.builder()
@@ -58,7 +75,7 @@ public class GuildData {
                     .botPrefix(botPrefix)
                     .botStatus(botStatus)
                     .activityType(activityType)
-                    .adminRoles(new ArrayList<>(List.of(arrRoles)))
+                    .adminRoles(new ArrayList<>(arrRoles))
                     .banned(banned)
                     .startingTickets(startingTickets);
 

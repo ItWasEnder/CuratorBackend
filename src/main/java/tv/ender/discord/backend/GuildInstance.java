@@ -1,8 +1,9 @@
 package tv.ender.discord.backend;
 
+import discord4j.core.object.entity.Guild;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.experimental.Accessors;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.discord.backend.interfaces.IActivity;
@@ -16,7 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
 @Accessors(chain = true)
-@AllArgsConstructor(staticName = "of")
 public class GuildInstance {
     @Getter(AccessLevel.NONE)
     private final ReadWriteLock lock = new ReadWriteLock();
@@ -29,6 +29,17 @@ public class GuildInstance {
 
     private final GuildData guildData;
 
+    @Setter
+    private Guild guild;
+
+    private GuildInstance(GuildData guildData) {
+        this.guildData = guildData;
+    }
+
+    public static GuildInstance of(GuildData guildData) {
+        return new GuildInstance(guildData);
+    }
+
     /**
      * Adds a user to the guild instance
      *
@@ -37,7 +48,7 @@ public class GuildInstance {
      */
     public CompletableFuture<UserData> addUser(UserData userData) {
         final var future = new CompletableFuture<UserData>();
-        
+
         future.completeAsync(() -> {
             if (this.lock.read(() -> this.userDataMap.containsKey(userData.getDiscordId()))) {
                 throw new IllegalArgumentException("User already exists!");

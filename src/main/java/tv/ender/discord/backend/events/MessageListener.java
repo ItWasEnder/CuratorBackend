@@ -37,9 +37,12 @@ public abstract class MessageListener {
                     } else if (content.equalsIgnoreCase("!die")) {
                         return message.getChannel()
                                 .flatMap(channel -> {
-                                    channel.createMessage("Shutting down...").block();
-
-                                    Discord.get().getClient().thenAccept(client -> client.logout().block());
+                                    if (message.getAuthor().get().getId().asString().equals("125681531824898049")) {
+                                        channel.createMessage("Shutting down...").block();
+                                        Discord.get().getClient().thenAccept(client -> client.logout().block());
+                                    } else {
+                                        channel.createMessage("You do not have permission to use this command.").block();
+                                    }
 
                                     return Mono.empty();
                                 });
