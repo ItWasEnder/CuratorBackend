@@ -22,6 +22,7 @@ public class GuildData {
     private String botStatus;
     private String activityType;
     private List<String> adminRoles;
+    private String activityChannel;
     @Setter(AccessLevel.NONE)
     private boolean banned;
     private int startingTickets;
@@ -65,6 +66,7 @@ public class GuildData {
             String botPrefix = (String) data.get("botPrefix");
             String botStatus = (String) data.get("botStatus");
             String activityType = (String) data.get("activityType");
+            String activityChannel = (String) data.get("activityChannel");
             ArrayList<String> arrRoles = (ArrayList<String>) data.get("adminRoles");
             boolean banned = (Boolean) data.get("banned");
             int startingTickets = ((Long) data.get("startingTickets")).intValue();
@@ -75,6 +77,7 @@ public class GuildData {
                     .botPrefix(botPrefix)
                     .botStatus(botStatus)
                     .activityType(activityType)
+                    .activityChannel(activityChannel)
                     .adminRoles(new ArrayList<>(arrRoles))
                     .banned(banned)
                     .startingTickets(startingTickets);

@@ -4,11 +4,9 @@ import com.google.firebase.database.annotations.NotNull;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.Event;
-import discord4j.discordjson.json.ApplicationCommandData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tv.ender.common.Promise;
 import tv.ender.common.ReadWriteLock;
@@ -100,7 +98,24 @@ public class Discord {
                     }
 
                     /* register commands */
-                    this.registerGuildCommands(applicationID.get(), guild.getId().asLong()).subscribe();
+                    List<ApplicationCommandRequest> commandRequests = new ArrayList<>();
+
+                    for (Command cmd : Commands.values()) {
+                        var req = this.constructRequest(cmd);
+                        commandRequests.add(req);
+                        this.client.getRestClient().getApplicationService().createGuildApplicationCommand(
+                                applicationID.get(),
+                                guild.getId().asLong(),
+                                req
+                        ).block();
+                    }
+
+                    System.out.println("Registering commands: " + commandRequests.size());
+                    this.client.getRestClient().getApplicationService().bulkOverwriteGuildApplicationCommand(
+                            applicationID.get(),
+                            guild.getId().asLong(),
+                            commandRequests
+                    ).blockLast();
                 }).blockLast())
                 .timeout(Duration.of(10, ChronoUnit.SECONDS))
                 .onErrorResume(throwable -> {
@@ -115,20 +130,6 @@ public class Discord {
         this.client.onDisconnect().block();
 
         System.out.println("Shutting down Discord Bot...");
-    }
-
-    private Flux<ApplicationCommandData> registerGuildCommands(long applicationID, long guildId) {
-        List<ApplicationCommandRequest> commandRequests = new ArrayList<>();
-
-        for (Command cmd : Commands.values()) {
-            commandRequests.add(this.constructRequest(cmd));
-        }
-
-        return this.client.getRestClient().getApplicationService().bulkOverwriteGuildApplicationCommand(
-                applicationID,
-                guildId,
-                commandRequests
-        );
     }
 
     public void saveGuilds() {

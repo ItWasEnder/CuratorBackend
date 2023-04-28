@@ -1,0 +1,9 @@
+{
+  "name": "prediction",
+  "description": "Configure this bot instance.",
+  "options": [
+    {
+
+    }
+  ]
+}

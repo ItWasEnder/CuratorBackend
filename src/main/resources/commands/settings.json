@@ -1,0 +1,12 @@
+{
+  "name": "settings",
+  "description": "Manage predictions.",
+  "options": [
+    {
+      "name": "set",
+      "description": "Set a settings.",
+      "type": 1,
+      "required": true
+    }
+  ]
+}

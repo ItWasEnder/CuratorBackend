@@ -1,5 +1,6 @@
 package tv.ender.discord.backend;
 
+import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Guild;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -11,6 +12,7 @@ import tv.ender.firebase.backend.GuildData;
 import tv.ender.firebase.backend.UserData;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +28,9 @@ public class GuildInstance {
 
     @Getter(AccessLevel.NONE)
     private final Map<UUID, IActivity> activities = new ConcurrentHashMap<>();
+
+    @Getter(AccessLevel.NONE)
+    private final Map<Snowflake, IActivity> activityMessages = new ConcurrentHashMap<>();
 
     private final GuildData guildData;
 
@@ -94,6 +99,34 @@ public class GuildInstance {
         });
 
         return future;
+    }
+
+    public CompletableFuture<UserData> getUser(Snowflake snowflake) {
+        return this.getUser(snowflake.asString());
+    }
+
+    public <T extends IActivity> CompletableFuture<Optional<T>> getActivityFromMessage(Snowflake message) {
+        final var future = new CompletableFuture<Optional<T>>();
+
+        future.completeAsync(() -> {
+            return this.lock.read(() -> {
+                if (this.activityMessages.containsKey(message)) {
+                    return Optional.of((T) this.activityMessages.get(message));
+                } else {
+                    return Optional.empty();
+                }
+            });
+        });
+
+        return future;
+    }
+
+    public <T extends IActivity> void mapActivityMessage(Snowflake message, T activity) {
+        if (this.lock.read(() -> this.activityMessages.containsKey(message))) {
+            throw new IllegalArgumentException("Message already mapped!");
+        }
+
+        this.lock.write(() -> this.activityMessages.put(message, activity));
     }
 
     /**

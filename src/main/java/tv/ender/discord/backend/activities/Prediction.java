@@ -25,6 +25,7 @@ public class Prediction implements IActivity {
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final AtomicLong endTime = new AtomicLong(-1);
     private final UUID uuid = UUID.randomUUID();
+    private final Set<String> options = new HashSet<>();
 
     @Override
     public Set<UserData> getParticipants() {
@@ -133,6 +134,7 @@ public class Prediction implements IActivity {
         this.lock.write(() -> {
             this.entrantsTokenMap.compute(user, (__, bet) -> (bet == null) ? tokens : bet + tokens);
             this.entrantPick.computeIfAbsent(user, k -> option);
+            this.options.add(option);
         });
 
         /* subtract tokens */
