@@ -15,6 +15,7 @@ import tv.ender.discord.backend.GuildInstance;
 import tv.ender.discord.backend.commands.Commands;
 import tv.ender.discord.backend.interfaces.Command;
 import tv.ender.discord.backend.interfaces.EventListener;
+import tv.ender.discord.listeners.ButtonInteractionEventListener;
 import tv.ender.discord.listeners.MessageCreateListener;
 import tv.ender.discord.listeners.SlashCommandListener;
 import tv.ender.firebase.Firebase;
@@ -72,6 +73,7 @@ public class Discord {
 
                     this.registerListener(new MessageCreateListener());
                     this.registerListener(new SlashCommandListener());
+                    this.registerListener(new ButtonInteractionEventListener());
 
                     applicationID.set(gateway.getRestClient().getApplicationId().block());
 

@@ -1,9 +1,12 @@
 package tv.ender.discord.backend.activities;
 
+import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
+import discord4j.core.object.entity.Member;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
+import tv.ender.discord.backend.GuildInstance;
 import tv.ender.discord.backend.interfaces.IActivity;
 import tv.ender.firebase.backend.UserData;
 
@@ -12,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,6 +38,11 @@ public class Prediction implements IActivity {
 
     public int getTotalTickets() {
         return this.lock.read(() -> this.entrantsTokenMap.values().stream().mapToInt(Integer::intValue).sum());
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running.get();
     }
 
     /**
@@ -147,5 +156,19 @@ public class Prediction implements IActivity {
     public void cancel() {
         this.reset();
         this.running.set(false);
+    }
+
+    @Override
+    public void handleButton(Member member, GuildInstance instance, ButtonInteractionEvent event) {
+        var future = new CompletableFuture<Void>();
+
+        future.completeAsync(() -> {
+            var interaction = event.getInteraction();
+            var userData = instance.getUser(member).join();
+
+            /* check if user has already entered */
+
+            return null;
+        });
     }
 }

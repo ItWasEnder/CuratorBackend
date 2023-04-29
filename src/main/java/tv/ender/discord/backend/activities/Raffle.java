@@ -1,14 +1,19 @@
 package tv.ender.discord.backend.activities;
 
+import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
+import discord4j.core.object.entity.Member;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import reactor.core.publisher.Mono;
 import tv.ender.common.ReadWriteLock;
 import tv.ender.common.Result;
 import tv.ender.discord.backend.BonusStatus;
+import tv.ender.discord.backend.GuildInstance;
 import tv.ender.discord.backend.interfaces.IActivity;
 import tv.ender.firebase.backend.UserData;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -19,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Getter
 @Accessors(chain = true)
@@ -42,6 +48,11 @@ public class Raffle implements IActivity {
 
     public int getTotalTickets() {
         return this.lock.read(() -> this.entrantsTicketsMap.values().stream().mapToInt(Integer::intValue).sum());
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running.get();
     }
 
     /**
@@ -155,5 +166,50 @@ public class Raffle implements IActivity {
     public void cancel() {
         this.reset();
         this.running.set(false);
+    }
+
+    @Override
+    public void handleButton(Member member, GuildInstance instance, ButtonInteractionEvent event) {
+        System.out.println("Handling button on raffle %s".formatted(this.uuid.toString()));
+        var userData = instance.getUser(member).join();
+        System.out.println("thang2");
+
+        if ("enter".equals(event.getCustomId())) {
+            System.out.println("Entered raffle");
+            member.getRoles()
+                    .flatMap(role -> Mono.just(role.getName()))
+                    .doOnNext(name -> {
+                        System.out.println("Role: " + name);
+                    })
+                    .blockLast();
+
+            var result = this.enter(userData, BonusStatus.NONE);
+
+            if (result.isSuccessful()) {
+                event.getInteractionResponse()
+                        .createFollowupMessageEphemeral("Entered into raffle with %d tickets".formatted(this.getEntrantsTicketsMap().get(userData)))
+                        .block();
+            } else {
+                event.getInteractionResponse()
+                        .createFollowupMessageEphemeral(result.getMessage())
+                        .block();
+            }
+        } else if ("end".equals(event.getCustomId())) {
+            System.out.println("Ended raffle");
+            var winners = this.end();
+
+            if (winners.isSuccessful()) {
+                event.getInteractionResponse()
+                        .createFollowupMessage("Raffle ended successfully with the winners %s".formatted(Arrays.stream(winners.getHolder())
+                                .map(UserData::getMember)
+                                .map(Member::getMention)
+                                .collect(Collectors.joining(", "))))
+                        .block();
+            } else {
+                event.getInteractionResponse()
+                        .createFollowupMessageEphemeral(winners.getMessage())
+                        .block();
+            }
+        }
     }
 }

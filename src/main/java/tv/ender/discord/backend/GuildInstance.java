@@ -2,6 +2,7 @@ package tv.ender.discord.backend;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.Member;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -101,20 +102,39 @@ public class GuildInstance {
         return future;
     }
 
-    public CompletableFuture<UserData> getUser(Snowflake snowflake) {
-        return this.getUser(snowflake.asString());
+    public CompletableFuture<UserData> getUser(Member member) {
+        var future = new CompletableFuture<UserData>();
+
+        future.completeAsync(() -> {
+            if (this.lock.read(() -> this.userDataMap.containsKey(member.getId().asString()))) {
+                var userData = this.getUser(member.getId().asString()).join();
+
+                if (userData.getMember() == null) {
+                    userData.setMember(member);
+                }
+
+                return userData;
+            } else {
+                var userData = UserData.of(member);
+
+                userData.setTokens(this.getGuildData().getStartingTickets());
+                userData.setMember(member);
+
+                this.addUser(userData);
+
+                return userData;
+            }
+        });
+
+        return future;
     }
 
-    public <T extends IActivity> CompletableFuture<Optional<T>> getActivityFromMessage(Snowflake message) {
-        final var future = new CompletableFuture<Optional<T>>();
+    public CompletableFuture<Optional<IActivity>> getActivityFromMessage(Snowflake message) {
+        final var future = new CompletableFuture<Optional<IActivity>>();
 
         future.completeAsync(() -> {
             return this.lock.read(() -> {
-                if (this.activityMessages.containsKey(message)) {
-                    return Optional.of((T) this.activityMessages.get(message));
-                } else {
-                    return Optional.empty();
-                }
+                return Optional.ofNullable(this.activityMessages.get(message));
             });
         });
 
@@ -156,11 +176,11 @@ public class GuildInstance {
      * @param uuid The UUID of the activity to get
      * @return A completable future that will complete with the result of the operation
      */
-    public <T extends IActivity> CompletableFuture<T> getActivity(UUID uuid) {
-        final var future = new CompletableFuture<T>();
+    public CompletableFuture<IActivity> getActivity(UUID uuid) {
+        final var future = new CompletableFuture<IActivity>();
 
         future.completeAsync(() -> {
-            return this.lock.read(() -> (T) this.activities.get(uuid));
+            return this.lock.read(() -> this.activities.get(uuid));
         });
 
         return future;
