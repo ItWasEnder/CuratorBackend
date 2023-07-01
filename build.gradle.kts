@@ -35,7 +35,7 @@ dependencies {
     implementation("com.discord4j:discord4j-core:3.2.4")
 
     /* firebase sdk */
-    implementation("com.google.firebase:firebase-admin:9.1.1")
+    implementation("com.google.firebase:firebase-admin:9.2.0")
 }
 
 application {
