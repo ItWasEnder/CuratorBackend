@@ -32,7 +32,7 @@ dependencies {
     implementation("com.google.guava:guava:31.1-jre")
 
     /* discord-js */
-    implementation("com.discord4j:discord4j-core:3.2.4")
+    implementation("com.discord4j:discord4j-core:3.2.5")
 
     /* firebase sdk */
     implementation("com.google.firebase:firebase-admin:9.1.1")
